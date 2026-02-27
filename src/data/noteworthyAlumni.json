@@ -1,0 +1,119 @@
+[
+    {
+        "id": 1,
+        "name": "B N Navalawala",
+        "batch": "1963",
+        "position": "Advisor to Chief Minister of Gujarat",
+        "department": "Civil Engineering",
+        "achievement": "Babubhai Navalawala is currently the Advisor to Chief Minister of Gujarat and a renowned expert in water resources.",
+        "image": "https://i.pravatar.cc/150?u=bn-navalawala&s=200"
+    },
+    {
+        "id": 2,
+        "name": "H P Jamdar",
+        "batch": "1965",
+        "position": "Advisor and Independent Director in Infrastructure",
+        "department": "Civil Engineering",
+        "achievement": "Mr. Jamdar, awarded lifetime achievement for his contribution to the infrastructure sector in India.",
+        "image": "https://i.pravatar.cc/150?u=hp-jamdar&s=200"
+    },
+    {
+        "id": 3,
+        "name": "Atik M Desai",
+        "batch": "1981",
+        "position": "Vice President at Hazira Manufacturing Complex",
+        "department": "Mechanical Engineering",
+        "achievement": "Vice President - Chief Administrative Officer at L&T Hazira Manufacturing Complex.",
+        "image": "https://i.pravatar.cc/150?u=atik-desai&s=200"
+    },
+    {
+        "id": 4,
+        "name": "Jayesh I Parikh",
+        "batch": "1983",
+        "position": "Founder of Chem Process Pvt. Ltd",
+        "department": "Mechanical Engineering",
+        "achievement": "Mr. Jayesh Parikh is the founder, chairman and managing director of Chem Process Pvt. Ltd.",
+        "image": "https://i.pravatar.cc/150?u=jayesh-parikh&s=200"
+    },
+    {
+        "id": 5,
+        "name": "Milan R Patel",
+        "batch": "1983",
+        "position": "Director of Troikaa Pharmaceuticals",
+        "department": "Chemical Engineering",
+        "achievement": "Chairman of Indian Drug Manufacturers Association and Director of Troikaa Pharmaceuticals.",
+        "image": "https://i.pravatar.cc/150?u=milan-patel&s=200"
+    },
+    {
+        "id": 6,
+        "name": "ARTI BASU",
+        "batch": "1986",
+        "position": "VICE PRESIDENT",
+        "department": "Chemical Engineering",
+        "achievement": "MRS ARTI BASU IS CURRENT VICE PRESIDENT at a leading pharmaceutical firm.",
+        "image": "https://i.pravatar.cc/150?u=arti-basu&s=200"
+    },
+    {
+        "id": 7,
+        "name": "Pavan Bakeri",
+        "batch": "1987",
+        "position": "Director in Bakeri Group",
+        "department": "Civil Engineering",
+        "achievement": "Member of Board of Directors at Bakeri Urban Development PVT. LTD.",
+        "image": "https://i.pravatar.cc/150?u=pavan-bakeri&s=200"
+    },
+    {
+        "id": 8,
+        "name": "Pavani Diwanji",
+        "batch": "1990",
+        "position": "Vice President at Facebook",
+        "department": "Computer Engineering",
+        "achievement": "Pavni Diwanji graduated from LDCE and is now a Vice President at Facebook (Meta).",
+        "image": "https://i.pravatar.cc/150?u=pavani-diwanji&s=200"
+    },
+    {
+        "id": 9,
+        "name": "Jaxay S Shah",
+        "batch": "1990",
+        "position": "Founder of Savvy group",
+        "department": "Civil Engineering",
+        "achievement": "Managing Director and Founder of SAVVY Infrastructure and former CREDAI Chairman.",
+        "image": "https://i.pravatar.cc/150?u=jaxay-shah&s=200"
+    },
+    {
+        "id": 10,
+        "name": "Sameer S Sinha",
+        "batch": "1990",
+        "position": "Founder of Savvy group",
+        "department": "Civil Engineering",
+        "achievement": "Founder and Managing Director of Savvy Group and pioneer in green buildings.",
+        "image": "https://i.pravatar.cc/150?u=sameer-sinha&s=200"
+    },
+    {
+        "id": 11,
+        "name": "Anjali Bansal",
+        "batch": "1992",
+        "position": "Founder of Avaana Capital",
+        "department": "Computer Engineering",
+        "achievement": "Anjali Bansal is the founder of Avaana Capital and former non-executive chairperson of Dena Bank.",
+        "image": "https://i.pravatar.cc/150?u=anjali-bansal&s=200"
+    },
+    {
+        "id": 12,
+        "name": "Anand A Patel",
+        "batch": "1993",
+        "position": "Director 2001-Present AEML Investments Limited",
+        "department": "Mechanical Engineering",
+        "achievement": "Director at AEML Investments and Gujarat Apollo Industries.",
+        "image": "https://i.pravatar.cc/150?u=anand-patel&s=200"
+    },
+    {
+        "id": 13,
+        "name": "Hardik Satishchandra Shah",
+        "batch": "1994",
+        "position": "Private Secretary to PM",
+        "department": "Environmental Engineering",
+        "achievement": "2010 Batch IAS Officer, appointed as Private Secretary to the Prime Minister of India.",
+        "image": "https://i.pravatar.cc/150?u=hardik-shah&s=200"
+    }
+]
