@@ -12,6 +12,7 @@ import Events from "@/features/events/Events.jsx";
 import Directory from "@/features/directory/Directory.jsx";
 import Blogs from "@/features/blogs/Blogs.jsx";
 import Challenges from "@/features/challenges/Challenges.jsx";
+import ChallengeDetails from "@/features/challenges/ChallengeDetails.jsx";
 import Startup from "@/features/startup/Startup.jsx";
 import Opportunities from "@/features/opportunities/Opportunities.jsx";
 import QnA from "@/features/qna/QnA.jsx";
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
               <Route path="/leaderboard" element={<PrivateRoute><Leaderboard /></PrivateRoute>} />
               <Route path="/challenges" element={<PrivateRoute><Challenges /></PrivateRoute>} />
+              <Route path="/challenges/:id" element={<PrivateRoute><ChallengeDetails /></PrivateRoute>} />
               <Route path="/startup" element={<PrivateRoute><Startup /></PrivateRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, Label, Input, Textarea } from "@/components/ui";
 import { motion } from "framer-motion";
 import { challenges as dummyChallenges } from "@/data/dummyData.js";
@@ -12,6 +13,7 @@ import { toast } from "sonner";
 
 const Challenges = () => {
   const { user, requireAuth } = useAuth();
+  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState([]);
   const [selectedDeadline, setSelectedDeadline] = useState([]);
@@ -296,7 +298,8 @@ const Challenges = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-card rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all border border-border flex flex-col h-full"
+              className="bg-card rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all border border-border flex flex-col h-full cursor-pointer"
+              onClick={() => navigate(`/challenges/${c.id}`)}
             >
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-blue-100 text-blue-700">
@@ -333,7 +336,10 @@ const Challenges = () => {
                       size="sm"
                       variant="outline"
                       className="h-6 px-2 text-xs"
-                      onClick={() => handleConnect(c.userId, posterDetails[c.userId]?.name || c.postedBy)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent navigation to details page
+                        handleConnect(c.userId, posterDetails[c.userId]?.name || c.postedBy);
+                      }}
                     >
                       <UserPlus className="h-3 w-3 mr-1" /> Connect
                     </Button>
@@ -343,7 +349,8 @@ const Challenges = () => {
 
               <Button
                 className="mt-6 w-full rounded-xl gradient-primary text-primary-foreground font-bold h-11"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent navigation to details page
                   if (c.externalLink) {
                     window.open(c.externalLink, "_blank", "noopener,noreferrer");
                   } else {
