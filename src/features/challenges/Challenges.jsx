@@ -42,7 +42,7 @@ const Challenges = () => {
     const q = query(collection(db, "challenges"), orderBy("timestamp", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setChallengesList(data.length > 0 ? data : dummyChallenges);
+      setChallengesList([...data, ...dummyChallenges]);
 
       // Fetch poster details for each challenge
       data.forEach(async (challenge) => {

@@ -40,8 +40,8 @@ const Opportunities = () => {
     const q = query(collection(db, "opportunities"), orderBy("timestamp", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setOpportunitiesList(data.length > 0 ? data : dummyOpportunities);
-      
+      setOpportunitiesList([...data, ...dummyOpportunities]);
+
       // Fetch poster details for each opportunity
       data.forEach(async (opportunity) => {
         if (opportunity.userId && opportunity.userId !== user?.uid) {
@@ -66,7 +66,7 @@ const Opportunities = () => {
       toast.error("Please login to send connection requests");
       return;
     }
-    
+
     if (posterUserId === user.uid) {
       toast.error("You cannot connect with yourself");
       return;
@@ -266,7 +266,7 @@ const Opportunities = () => {
                   Clear All
                 </Button>
               </div>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Job Type & Department */}
                 <div className="space-y-3">
@@ -457,7 +457,7 @@ const Opportunities = () => {
                   <CalendarCheck className="h-4 w-4 text-slate-400" /> Apply by {o.deadline}
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground font-normal">Contact:</span> 
+                  <span className="text-muted-foreground font-normal">Contact:</span>
                   <span className="text-primary font-medium">{o.contactInfo}</span>
                 </div>
               </div>
