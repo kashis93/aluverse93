@@ -21,19 +21,19 @@ import Notifications from "@/features/notifications/Notifications.jsx";
 import Leaderboard from "@/features/directory/Leaderboard.jsx";
 import NotFound from "@/components/NotFound.jsx";
 import Profile from "@/features/profile/Profile.jsx";
-
+import AchievementsPage from "@/features/achievements/AchievementsPage.jsx";
 import CompleteProfile from "@/features/profile/CompleteProfile.jsx";
 import { Navigate } from "react-router-dom";
 
 const PrivateRoute = ({ children }) => {
   const { user, isProfileComplete } = useAuth();
-  
+
   // If not logged in, they can see the page (explore)
-  if (!user) return children; 
-  
+  if (!user) return children;
+
   // If logged in but profile not complete, force completion
   if (!isProfileComplete) return <Navigate to="/complete-profile" />;
-  
+
   return children;
 };
 
@@ -50,7 +50,7 @@ const App = () => (
             <Navbar />
             <LoginModal />
             <main className="min-h-screen pt-0">
-            <Routes>
+<Routes>
               <Route path="/complete-profile" element={<CompleteProfile />} />
               <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
               <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
@@ -67,9 +67,9 @@ const App = () => (
               <Route path="/challenges" element={<PrivateRoute><Challenges /></PrivateRoute>} />
               <Route path="/challenges/:id" element={<PrivateRoute><ChallengeDetails /></PrivateRoute>} />
               <Route path="/startup" element={<PrivateRoute><Startup /></PrivateRoute>} />
+              <Route path="/achievements" element={<PrivateRoute><AchievementsPage /></PrivateRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </main>
             <Footer />
           </NotificationProvider>
         </AuthProvider>

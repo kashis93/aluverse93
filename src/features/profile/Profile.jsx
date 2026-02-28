@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext.jsx";
-import { subscribeToConnections, getOrCreateChat } from "@/services/socialService";
+import { subscribeToConnections, getOrCreateChat, sendConnectionRequest } from "@/services/socialService";
 import { db, storage } from "@/services/firebase";
 import { doc, getDoc, updateDoc, onSnapshot, collection, query, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Avatar, AvatarFallback, AvatarImage, Button, Card, CardContent, CardHeader, CardTitle, Tabs, TabsContent, TabsList, TabsTrigger, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, Badge } from "@/components/ui";
-import { User, MessageCircle, Mail, MapPin, Briefcase, GraduationCap, Award, Users, Edit, Upload, Link as LinkIcon, PenTool, Calendar, Plus } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage, Button, Card, CardContent, CardHeader, CardTitle, Tabs, TabsContent, TabsList, TabsTrigger, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, Badge, Separator } from "@/components/ui";
+import { User, MessageCircle, Mail, MapPin, Briefcase, GraduationCap, Award, Users, Edit, Upload, Link as LinkIcon, PenTool, Calendar, Plus, Activity, ImageIcon, ExternalLink, MoreHorizontal } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import PostCard from "@/features/achievements/components/PostCard";
+import { getSingleStatus } from "@/services/postsAPI";
+import { alumni as dummyAlumni } from "@/data/dummyData.js";
+import noteworthyAlumniRaw from "@/data/noteworthyAlumni.json";
 
 const Profile = () => {
     const { user } = useAuth();
@@ -15,8 +19,9 @@ const Profile = () => {
     const navigate = useNavigate();
     const profileUserId = id || user?.uid;
     const isOwnProfile = !id || id === user?.uid;
-    
+
     const fileInputRef = useRef(null);
+    const coverInputRef = useRef(null);
     const [connections, setConnections] = useState([]);
     const [loading, setLoading] = useState(true);
     const [connectionDetails, setConnectionDetails] = useState([]);
@@ -39,7 +44,8 @@ const Profile = () => {
     const [myOpportunities, setMyOpportunities] = useState([]);
     const [myEvents, setMyEvents] = useState([]);
     const [myChallenges, setMyChallenges] = useState([]);
-    const [counts, setCounts] = useState({ blogs: 0, opps: 0, events: 0, challenges: 0 });
+    const [myPosts, setMyPosts] = useState([]);
+    const [counts, setCounts] = useState({ blogs: 0, opps: 0, events: 0, challenges: 0, posts: 0 });
 
     useEffect(() => {
         if (isOwnProfile && user) {
@@ -61,7 +67,7 @@ const Profile = () => {
 
         setLoading(true);
         const userDocRef = doc(db, "users", profileUserId);
-        
+
         const unsubscribeProfile = onSnapshot(userDocRef, (doc) => {
             if (doc.exists()) {
                 const userData = doc.data();
@@ -73,12 +79,58 @@ const Profile = () => {
                     setPhotoPreview(userData.photoURL);
                 }
             } else {
-                toast.error("User not found");
+                let staticUser = dummyAlumni.find(a => a.id === profileUserId);
+
+                if (!staticUser && profileUserId.startsWith("nw-")) {
+                    const nwId = profileUserId.replace("nw-", "");
+                    const raw = noteworthyAlumniRaw.find(a => a.id == nwId);
+                    if (raw) {
+                        staticUser = {
+                            uid: profileUserId,
+                            name: raw.name,
+                            graduationYear: parseInt(raw.batch) || 0,
+                            department: raw.department || "General",
+                            company: raw.position.includes(" at ") ? raw.position.split(" at ")[1] : raw.position,
+                            role: raw.position.includes(" at ") ? raw.position.split(" at ")[0] : "Alumni",
+                            location: "Ahmedabad",
+                            photoURL: raw.image,
+                            skills: ["Distinguished", "Leader"],
+                            isMentor: false,
+                            membershipType: "LAA Member",
+                            achievement: raw.achievement,
+                            bio: raw.achievement
+                        };
+                    }
+                }
+
+                if (staticUser && !staticUser.uid) {
+                    staticUser = {
+                        uid: profileUserId,
+                        name: staticUser.name,
+                        graduationYear: staticUser.graduationYear,
+                        department: staticUser.department,
+                        company: staticUser.company,
+                        role: staticUser.role,
+                        location: staticUser.location,
+                        photoURL: staticUser.avatar,
+                        skills: staticUser.skills,
+                        isMentor: staticUser.isMentor,
+                        membershipType: staticUser.membershipType,
+                        achievement: staticUser.achievement,
+                        bio: `${staticUser.role} at ${staticUser.company}`
+                    };
+                }
+
+                if (staticUser) {
+                    setDisplayUser(staticUser);
+                    if (!isOwnProfile) setPhotoPreview(staticUser.photoURL);
+                } else {
+                    toast.error("User not found");
+                }
             }
             setLoading(false);
         });
 
-        // Fetch My Blogs
         const qBlogs = query(collection(db, "blogs"), where("userId", "==", profileUserId));
         const unsubscribeBlogs = onSnapshot(qBlogs, (snapshot) => {
             const blogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -86,7 +138,6 @@ const Profile = () => {
             setCounts(prev => ({ ...prev, blogs: blogs.length }));
         });
 
-        // Fetch My Opportunities
         const qOpps = query(collection(db, "opportunities"), where("userId", "==", profileUserId));
         const unsubscribeOpps = onSnapshot(qOpps, (snapshot) => {
             const opps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -94,7 +145,6 @@ const Profile = () => {
             setCounts(prev => ({ ...prev, opps: opps.length }));
         });
 
-        // Fetch My Events
         const qEvents = query(collection(db, "events"), where("userId", "==", profileUserId));
         const unsubscribeEvents = onSnapshot(qEvents, (snapshot) => {
             const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -102,7 +152,6 @@ const Profile = () => {
             setCounts(prev => ({ ...prev, events: events.length }));
         });
 
-        // Fetch My Challenges
         const qChallenges = query(collection(db, "challenges"), where("userId", "==", profileUserId));
         const unsubscribeChallenges = onSnapshot(qChallenges, (snapshot) => {
             const challenges = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -110,12 +159,18 @@ const Profile = () => {
             setCounts(prev => ({ ...prev, challenges: challenges.length }));
         });
 
+        const unsubscribePosts = getSingleStatus((posts) => {
+            setMyPosts(posts);
+            setCounts(prev => ({ ...prev, posts: posts.length }));
+        }, profileUserId);
+
         return () => {
             unsubscribeProfile();
             unsubscribeBlogs();
             unsubscribeOpps();
             unsubscribeEvents();
             unsubscribeChallenges();
+            unsubscribePosts();
         };
     }, [profileUserId, isOwnProfile]);
 
@@ -124,8 +179,6 @@ const Profile = () => {
 
         const unsubscribe = subscribeToConnections(profileUserId, async (cons) => {
             setConnections(cons);
-
-            // Fetch partner details for each connection
             const details = await Promise.all(cons.map(async (con) => {
                 const partnerDoc = await getDoc(doc(db, "users", con.partnerId));
                 return { id: con.id, partnerId: con.partnerId, ...(partnerDoc.exists() ? partnerDoc.data() : {}) };
@@ -146,6 +199,21 @@ const Profile = () => {
         }
     };
 
+    const handleConnect = async () => {
+        if (!user || (!displayUser && !profileUserId)) {
+            toast.error("Please log in or wait for profile to load.");
+            return;
+        }
+
+        try {
+            const targetId = displayUser?.uid || profileUserId;
+            await sendConnectionRequest(user, targetId);
+            toast.success("Connection request sent!");
+        } catch (error) {
+            toast.error(error.message || "Failed to send request.");
+        }
+    };
+
     const handlePhotoChange = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -162,12 +230,26 @@ const Profile = () => {
         reader.readAsDataURL(file);
     };
 
+    const handleCoverChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) return toast.error("Image must be less than 5MB");
+
+        toast.info("Uploading cover photo...");
+        try {
+            const storageRef = ref(storage, `cover-photos/${user.uid}/${Date.now()}`);
+            await uploadBytes(storageRef, file);
+            const coverURL = await getDownloadURL(storageRef);
+            await updateDoc(doc(db, "users", user.uid), { coverPhotoURL: coverURL });
+            toast.success("Cover photo updated!");
+        } catch (error) {
+            toast.error("Failed to upload cover photo.");
+        }
+    };
+
     const handleEditSubmit = async (e) => {
         e.preventDefault();
-        if (!editData.name.trim()) {
-            toast.error("Please enter your name");
-            return;
-        }
+        if (!editData.name.trim()) return toast.error("Please enter your name");
 
         setEditLoading(true);
         const timeoutId = setTimeout(() => {
@@ -190,22 +272,14 @@ const Profile = () => {
                 try {
                     const storageRef = ref(storage, `profile-photos/${user.uid}/${Date.now()}`);
                     await uploadBytes(storageRef, photoFile);
-                    const photoURL = await getDownloadURL(storageRef);
-                    updateObj.photoURL = photoURL;
-                    setPhotoPreview(photoURL);
+                    updateObj.photoURL = await getDownloadURL(storageRef);
+                    setPhotoPreview(updateObj.photoURL);
                 } catch (photoError) {
-                    console.warn("Photo upload warning:", photoError);
                     toast.warning("Profile saved but photo upload failed");
                 }
             }
 
-            if (!user?.uid) {
-                throw new Error("User ID not found");
-            }
-
-            const userDocRef = doc(db, "users", user.uid);
-            await updateDoc(userDocRef, updateObj);
-
+            await updateDoc(doc(db, "users", user.uid), updateObj);
             clearTimeout(timeoutId);
             setDisplayUser(prev => ({ ...prev, ...updateObj }));
             setPhotoFile(null);
@@ -214,493 +288,424 @@ const Profile = () => {
             toast.success("Profile updated successfully!");
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error("Update error details:", error);
             setEditLoading(false);
-            toast.error(error?.message || "Failed to update profile. Please try again.");
+            toast.error(error?.message || "Failed to update profile.");
         }
     };
 
     if (!user) return null;
 
     return (
-        <div className="container mx-auto px-4 py-10 min-h-screen">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Profile Info Card */}
-                <Card className="lg:col-span-1 border-slate-200 shadow-xl rounded-[2rem] overflow-hidden h-fit">
-                    <div className="h-32 gradient-primary w-full" />
-                    <CardContent className="px-6 pb-8 -mt-16">
-                        <div className="text-center mb-4">
-                            <Avatar className="h-32 w-32 border-4 border-white shadow-xl mx-auto mb-4 rounded-full">
-                                <AvatarImage src={displayUser?.photoURL} alt={displayUser?.name} />
-                                <AvatarFallback>{displayUser?.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
-                            </Avatar>
-                            <h1 className="text-2xl font-bold text-slate-900">{displayUser?.name || "User"}</h1>
-                            <p className="text-primary font-bold uppercase text-xs tracking-widest mt-1">{displayUser?.role}</p>
-                            {displayUser?.bio && <p className="text-sm text-slate-600 mt-2 italic">{displayUser?.bio}</p>}
-                        </div>
+        <div className="bg-[#f3f2ef] w-full min-h-screen pt-8 pb-16">
+            <div className="max-w-[1128px] mx-auto px-0 sm:px-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
-                        {isOwnProfile ? (
-                            <Button
-                                onClick={() => {
-                                    setEditData({
-                                        name: displayUser?.name || "",
-                                        bio: displayUser?.bio || "",
-                                        company: displayUser?.company || "",
-                                        achievement: displayUser?.achievement || "",
-                                        portfolioUrl: displayUser?.portfolioUrl || "",
-                                        linkedinUrl: displayUser?.linkedinUrl || "",
-                                        twitterUrl: displayUser?.twitterUrl || ""
-                                    });
-                                    setPhotoPreview(displayUser?.photoURL || null);
-                                    setEditOpen(true);
-                                }}
-                                className="w-full mb-6 gap-2 bg-primary hover:bg-primary/90 text-white rounded-lg"
-                            >
-                                <Edit className="h-4 w-4" /> Edit Profile
-                            </Button>
-                        ) : (
-                            <div className="flex gap-2 mb-6">
-                                <Button 
-                                    className="flex-1 gradient-primary text-white rounded-lg"
-                                    onClick={() => handleMessage(displayUser.uid)}
-                                >
-                                    <MessageCircle className="h-4 w-4 mr-2" /> Message
-                                </Button>
-                            </div>
-                        )}
+                    {/* Main Left Column (Takes up 3/4) */}
+                    <div className="md:col-span-3 space-y-4">
 
-                        <div className="space-y-3 text-sm text-left border-t pt-6">
-                            <div className="flex items-center gap-3 text-slate-600">
-                                <Mail className="h-4 w-4 text-slate-400" /> {displayUser?.email}
+                        {/* 1. Intro Card */}
+                        <Card className="overflow-hidden border-slate-300/60 shadow-none rounded-lg bg-white relative">
+                            <div className="h-[200px] relative bg-slate-200 w-full group">
+                                {displayUser?.coverPhotoURL ? (
+                                    <img src={displayUser.coverPhotoURL} className="w-full h-full object-cover" alt="Cover" />
+                                ) : (
+                                    <div className="w-full h-full gradient-primary" />
+                                )}
+                                {isOwnProfile && (
+                                    <>
+                                        <input type="file" ref={coverInputRef} className="hidden" accept="image/*" onChange={handleCoverChange} />
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => coverInputRef.current?.click()}
+                                            className="absolute top-4 right-4 bg-white/90 hover:bg-white text-slate-800 h-8 font-semibold rounded-full shadow-sm"
+                                        >
+                                            <ImageIcon className="h-4 w-4 mr-2" />
+                                            Edit background
+                                        </Button>
+                                    </>
+                                )}
                             </div>
-                            <div className="flex items-center gap-3 text-slate-600">
-                                <GraduationCap className="h-4 w-4 text-slate-400" /> {displayUser?.department} · Batch of {displayUser?.graduationYear}
-                            </div>
-                            {displayUser?.company && (
-                                <div className="flex items-center gap-3 text-slate-600">
-                                    <Briefcase className="h-4 w-4 text-slate-400" /> {displayUser?.company}
-                                </div>
-                            )}
-                            {displayUser?.achievement && (
-                                <div className="flex items-start gap-3 text-slate-600">
-                                    <Award className="h-4 w-4 text-slate-400 mt-1" />
-                                    <span>{displayUser?.achievement}</span>
-                                </div>
-                            )}
-                            {displayUser?.portfolioUrl && (
-                                <div className="flex items-center gap-3 text-slate-600">
-                                    <LinkIcon className="h-4 w-4 text-slate-400" />
-                                    <a href={displayUser?.portfolioUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Portfolio</a>
-                                </div>
-                            )}
-                            {displayUser?.linkedinUrl && (
-                                <div className="flex items-center gap-3 text-slate-600">
-                                    <LinkIcon className="h-4 w-4 text-slate-400" />
-                                    <a href={displayUser?.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">LinkedIn</a>
-                                </div>
-                            )}
-                            {displayUser?.twitterUrl && (
-                                <div className="flex items-center gap-3 text-slate-600">
-                                    <LinkIcon className="h-4 w-4 text-slate-400" />
-                                    <a href={displayUser?.twitterUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Twitter</a>
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
 
-                {/* Main Content Area */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* LinkedIn-style Achievements Section */}
-                    <Card className="border-slate-200 shadow-xl rounded-[2rem] overflow-hidden">
-                        <CardHeader className="bg-slate-50 border-b py-4 px-6 flex flex-row items-center justify-between">
-                            <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                <Award className="h-5 w-5 text-primary" /> Achievements
-                            </CardTitle>
-                            {isOwnProfile && (
-                                <Button 
-                                    size="sm" 
-                                    variant="ghost" 
-                                    className="h-8 w-8 p-0 rounded-full"
-                                    onClick={() => setEditOpen(true)}
-                                >
-                                    <Plus className="h-4 w-4 text-primary" />
-                                </Button>
-                            )}
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            {displayUser?.achievement ? (
-                                <div className="space-y-4">
-                                    <div className="flex gap-4 items-start p-4 bg-primary/5 rounded-2xl border border-primary/10">
-                                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                            <Award className="h-6 w-6 text-primary" />
-                                        </div>
-                                        <div>
-                                            <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                                {displayUser.achievement}
-                                            </p>
-                                        </div>
+                            <CardContent className="px-6 pb-6 relative">
+                                <div className="flex justify-between items-start">
+                                    <Avatar className="h-[152px] w-[152px] border-4 border-white absolute -top-24 rounded-full shadow-sm bg-white cursor-pointer hover:opacity-90 transition-opacity">
+                                        <AvatarImage src={displayUser?.photoURL} />
+                                        <AvatarFallback className="text-5xl bg-slate-100 text-slate-400 font-semibold">{displayUser?.name?.[0]?.toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+
+                                    <div className="ml-auto mt-4 flex gap-2">
+                                        {isOwnProfile ? (
+                                            <>
+                                                <Button variant="outline" className="rounded-full px-4 font-semibold border-slate-400 text-slate-600 hover:bg-slate-50 hover:border-slate-500" onClick={() => setEditOpen(true)}>
+                                                    Add profile section
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hover:bg-slate-100 text-slate-600" onClick={() => setEditOpen(true)}>
+                                                    <PenTool className="h-5 w-5" />
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Button className="rounded-full px-5 bg-[#0a66c2] hover:bg-[#004182] text-white font-semibold shadow-none text-base h-9" onClick={() => handleMessage(displayUser.uid)}>
+                                                    <MessageCircle className="h-4 w-4 mr-2" /> Message
+                                                </Button>
+                                                <Button variant="outline" className="rounded-full px-5 font-semibold border-[#0a66c2] text-[#0a66c2] hover:bg-[#ebf4fd] hover:border-2 hover:border-[#0a66c2] shadow-none text-base h-9" onClick={handleConnect}>
+                                                    Connect
+                                                </Button>
+                                                <Button variant="outline" size="icon" className="rounded-full h-9 w-9 border-slate-500 text-slate-600 hover:bg-slate-100 hover:border-slate-600" onClick={() => toast.info('More options coming soon')}>
+                                                    <MoreHorizontal className="h-5 w-5" />
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="text-center py-8 text-muted-foreground italic">
-                                    {isOwnProfile ? "Add your achievements and certifications to stand out!" : "No achievements listed yet."}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
 
-                    <Tabs defaultValue="network" className="w-full">
-                        <TabsList className="w-full justify-start bg-slate-100/50 p-1 mb-6 rounded-2xl border flex-wrap h-auto">
-                            <TabsTrigger value="network" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
-                                <Users className="h-4 w-4" /> {isOwnProfile ? "My Network" : "Network"}
-                            </TabsTrigger>
-                            <TabsTrigger value="blogs" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
-                                <PenTool className="h-4 w-4" /> {isOwnProfile ? "My Blogs" : "Blogs"} <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{counts.blogs}</Badge>
-                            </TabsTrigger>
-                            <TabsTrigger value="challenges" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
-                                <Award className="h-4 w-4" /> {isOwnProfile ? "My Challenges" : "Challenges"} <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{counts.challenges}</Badge>
-                            </TabsTrigger>
-                            <TabsTrigger value="opportunities" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
-                                <Briefcase className="h-4 w-4" /> {isOwnProfile ? "My Opportunities" : "Opportunities"} <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{counts.opps}</Badge>
-                            </TabsTrigger>
-                            <TabsTrigger value="events" className="rounded-xl px-4 py-2 font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2">
-                                <Calendar className="h-4 w-4" /> {isOwnProfile ? "My Events" : "Events"} <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{counts.events}</Badge>
-                            </TabsTrigger>
-                        </TabsList>
+                                <div className="mt-[72px] sm:mt-[68px]">
+                                    <div className="flex justify-between items-start">
+                                        <div className="max-w-[75%]">
+                                            <h1 className="text-2xl font-semibold text-slate-900 leading-tight">{displayUser?.name || "Member"}</h1>
+                                            <p className="text-base text-slate-800 mt-[2px]">{displayUser?.role} at {displayUser?.company || displayUser?.department || "L.D. College of Engineering"}</p>
 
-                        <TabsContent value="network">
-                            <Card className="border-slate-200 shadow-xl rounded-[2rem] overflow-hidden">
-                                <CardHeader className="bg-slate-50 border-b py-4 px-6">
-                                    <CardTitle className="text-lg font-bold">{isOwnProfile ? "Connections" : `${displayUser?.name}'s Connections`} ({connectionDetails.length})</CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    {loading ? (
-                                        <div className="p-12 text-center text-muted-foreground">Loading network...</div>
-                                    ) : connectionDetails.length === 0 ? (
-                                        <div className="p-20 text-center">
-                                            <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                                <Users className="h-8 w-8 text-slate-300" />
+                                            <div className="flex items-center gap-1 mt-1 text-sm text-slate-500">
+                                                {displayUser?.location ? <span>{displayUser.location}</span> : <span>Ahmedabad, Gujarat, India</span>}
+                                                <span className="mx-1">•</span>
+                                                <a href="#info" className="text-[#0a66c2] font-semibold hover:underline">Contact info</a>
                                             </div>
-                                            <h3 className="font-bold text-slate-800">{isOwnProfile ? "Your network is empty" : "No connections yet"}</h3>
-                                            <p className="text-muted-foreground mt-2 max-w-xs mx-auto">
-                                                {isOwnProfile ? "Connect with LDCE alumni to start growing your professional network." : `Connect with ${displayUser?.name} to see their network.`}
-                                            </p>
-                                            {isOwnProfile && (
-                                                <Button variant="link" onClick={() => navigate("/directory")} className="text-primary font-bold mt-4">
-                                                    Find people in Directory →
-                                                </Button>
+
+                                            <a href="#network" className="text-[#0a66c2] font-semibold hover:underline text-sm inline-block mt-2">
+                                                {connectionDetails.length} connections
+                                            </a>
+                                        </div>
+
+                                        <div className="text-sm font-semibold flex items-center gap-2 hover:underline cursor-pointer group pr-4">
+                                            <div className="bg-slate-100 p-2 rounded shrink-0">
+                                                <GraduationCap className="h-5 w-5 text-slate-700" />
+                                            </div>
+                                            <span className="text-slate-900 line-clamp-2">L.D. College of Engineering</span>
+                                        </div>
+                                    </div>
+
+                                    {(displayUser?.portfolioUrl || displayUser?.linkedinUrl || displayUser?.twitterUrl) && (
+                                        <div className="flex gap-4 mt-4 bg-slate-50 p-3 rounded-lg border border-slate-100 w-fit">
+                                            {displayUser?.portfolioUrl && (
+                                                <a href={displayUser.portfolioUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-slate-600 hover:text-[#0a66c2] hover:underline flex items-center gap-1">
+                                                    Portfolio <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            )}
+                                            {displayUser?.linkedinUrl && (
+                                                <a href={displayUser.linkedinUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-slate-600 hover:text-[#0a66c2] hover:underline flex items-center gap-1">
+                                                    LinkedIn <ExternalLink className="h-3 w-3" />
+                                                </a>
                                             )}
                                         </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 2. About Card */}
+                        {(displayUser?.bio || isOwnProfile) && (
+                            <Card className="border-slate-300/60 shadow-none rounded-lg bg-white">
+                                <CardHeader className="px-6 py-4 pb-2 flex flex-row items-center justify-between border-0">
+                                    <CardTitle className="text-xl font-semibold text-slate-900">About</CardTitle>
+                                    {isOwnProfile && (
+                                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-slate-100 text-slate-600" onClick={() => setEditOpen(true)}>
+                                            <PenTool className="h-5 w-5" />
+                                        </Button>
+                                    )}
+                                </CardHeader>
+                                <CardContent className="px-6 pb-6">
+                                    {displayUser?.bio ? (
+                                        <p className="text-[15px] text-slate-800 leading-relaxed whitespace-pre-wrap">{displayUser.bio}</p>
                                     ) : (
-                                        <div className="divide-y divide-slate-100">
-                                            {connectionDetails.map((con) => (
-                                                <div key={con.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
-                                                    <div className="flex items-center gap-3 flex-1">
-                                                        <Avatar className="h-14 w-14 border-2 border-primary/20 shadow-md rounded-full flex-shrink-0">
-                                                            <AvatarImage src={con.photoURL} alt={con.name} />
-                                                            <AvatarFallback><User className="h-7 w-7 text-slate-400" /></AvatarFallback>
-                                                        </Avatar>
-                                                        <div>
-                                                            <h3 className="font-bold text-slate-800">{con.name}</h3>
-                                                            <p className="text-xs text-muted-foreground">{con.role} · {con.department}</p>
+                                        <p className="text-[15px] text-slate-500 italic">Add a summary to highlight your personality or work experience.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* 3. Activity & Contributions */}
+                        <Card className="border-slate-300/60 shadow-none rounded-lg bg-white">
+                            <CardHeader className="px-6 py-4 pb-0 border-0 flex flex-col pt-5">
+                                <div className="flex justify-between w-full">
+                                    <div>
+                                        <CardTitle className="text-xl font-semibold text-slate-900">Activity</CardTitle>
+                                        <p className="text-[15px] text-[#0a66c2] font-semibold hover:underline mt-0.5 cursor-pointer">
+                                            {connectionDetails.length} followers
+                                        </p>
+                                    </div>
+                                    {isOwnProfile ? (
+                                        <div className="flex gap-2">
+                                            <Button variant="outline" className="rounded-full px-4 font-semibold border-[#0a66c2] text-[#0a66c2] hover:bg-[#ebf4fd] hover:border-2 shadow-none text-[15px] h-9" onClick={() => navigate('/achievements')}>
+                                                Create a post
+                                            </Button>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0 mt-2">
+                                <Tabs defaultValue="posts" className="w-full">
+                                    <TabsList className="w-full justify-start rounded-none border-b border-slate-200 bg-transparent p-0 pl-6 h-auto">
+                                        <TabsTrigger value="posts" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#01754f] data-[state=active]:bg-transparent data-[state=active]:text-[#01754f] data-[state=active]:shadow-none px-4 py-3 font-semibold text-[15px] hover:bg-slate-50 transition-colors">Posts</TabsTrigger>
+                                        <TabsTrigger value="opportunities" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#01754f] data-[state=active]:bg-transparent data-[state=active]:text-[#01754f] data-[state=active]:shadow-none px-4 py-3 font-semibold text-[15px] hover:bg-slate-50 transition-colors">Opportunities</TabsTrigger>
+                                        <TabsTrigger value="challenges" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#01754f] data-[state=active]:bg-transparent data-[state=active]:text-[#01754f] data-[state=active]:shadow-none px-4 py-3 font-semibold text-[15px] hover:bg-slate-50 transition-colors">Challenges</TabsTrigger>
+                                        <TabsTrigger value="events" className="rounded-none border-b-2 border-transparent data-[state=active]:border-[#01754f] data-[state=active]:bg-transparent data-[state=active]:text-[#01754f] data-[state=active]:shadow-none px-4 py-3 font-semibold text-[15px] hover:bg-slate-50 transition-colors">Events</TabsTrigger>
+                                    </TabsList>
+
+                                    <div className="p-0">
+                                        {/* Posts Tab */}
+                                        <TabsContent value="posts" className="m-0 focus-visible:outline-none">
+                                            {myPosts.length === 0 ? (
+                                                <div className="p-8 text-center text-slate-500 text-[15px]">You haven't posted anything yet.</div>
+                                            ) : (
+                                                <div className="divide-y divide-slate-200 border-b border-slate-200">
+                                                    {myPosts.slice(0, 3).map((post) => (
+                                                        <div key={post.id} className="p-6 pb-2">
+                                                            <PostCard posts={post} currentUser={user} getEditData={() => toast.info("Edit from feed")} />
                                                         </div>
-                                                    </div>
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleMessage(con.partnerId)}
-                                                        className="rounded-full bg-slate-100 text-slate-600 hover:bg-primary hover:text-white border-0"
-                                                    >
-                                                        <MessageCircle className="h-4 w-4 mr-2" /> Message
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <Button variant="ghost" className="w-full rounded-none rounded-b-lg font-semibold text-slate-600 h-12 hover:bg-slate-100/50" onClick={() => navigate('/achievements')}>
+                                                Show all activity <Activity className="w-4 h-4 ml-2" />
+                                            </Button>
+                                        </TabsContent>
+
+                                        {/* Challenges Tab */}
+                                        <TabsContent value="challenges" className="m-0 p-6 focus-visible:outline-none">
+                                            {myChallenges.length === 0 ? <p className="text-slate-500 text-[15px]">No challenges initiated.</p> : (
+                                                <div className="space-y-4">
+                                                    {myChallenges.slice(0, 3).map(c => (
+                                                        <div key={c.id} className="border-b pb-4 last:border-b-0 cursor-pointer" onClick={() => navigate("/challenges")}>
+                                                            <h4 className="font-semibold text-lg hover:text-[#0a66c2] hover:underline">{c.title}</h4>
+                                                            <p className="text-sm text-slate-500 mt-1 line-clamp-2">{c.description || c.category}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </TabsContent>
+
+                                        {/* Opportunities Tab */}
+                                        <TabsContent value="opportunities" className="m-0 p-6 focus-visible:outline-none">
+                                            {myOpportunities.length === 0 ? <p className="text-slate-500 text-[15px]">No opportunities posted.</p> : (
+                                                <div className="space-y-4">
+                                                    {myOpportunities.slice(0, 3).map(o => (
+                                                        <div key={o.id} className="border-b pb-4 last:border-b-0 cursor-pointer" onClick={() => navigate("/opportunities")}>
+                                                            <h4 className="font-semibold text-lg hover:text-[#0a66c2] hover:underline">{o.title}</h4>
+                                                            <p className="text-sm text-slate-500 mt-1">{o.company} • {o.type || o.roleType}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </TabsContent>
+
+                                        {/* Events Tab */}
+                                        <TabsContent value="events" className="m-0 p-6 focus-visible:outline-none">
+                                            {myEvents.length === 0 ? <p className="text-slate-500 text-[15px]">No events created.</p> : (
+                                                <div className="space-y-4">
+                                                    {myEvents.slice(0, 3).map(e => (
+                                                        <div key={e.id} className="border-b pb-4 last:border-b-0 cursor-pointer" onClick={() => navigate("/events")}>
+                                                            <h4 className="font-semibold text-lg hover:text-[#0a66c2] hover:underline">{e.title}</h4>
+                                                            <p className="text-sm text-slate-500 mt-1">{e.date} • {e.location || 'Online'}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </TabsContent>
+                                    </div>
+                                </Tabs>
+                            </CardContent>
+                        </Card>
+
+                        {/* 4. Experience & Education */}
+                        <Card className="border-slate-300/60 shadow-none rounded-lg bg-white">
+                            <CardHeader className="px-6 py-4 pb-2 flex flex-row items-center justify-between border-0 pt-5">
+                                <CardTitle className="text-xl font-semibold text-slate-900">Experience</CardTitle>
+                                {isOwnProfile && (
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-slate-100 text-slate-600" onClick={() => setEditOpen(true)}><Plus className="h-6 w-6" /></Button>
+                                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-slate-100 text-slate-600" onClick={() => setEditOpen(true)}><PenTool className="h-5 w-5" /></Button>
+                                    </div>
+                                )}
+                            </CardHeader>
+                            <CardContent className="px-6 pb-6 border-b border-slate-200">
+                                {displayUser?.company ? (
+                                    <div className="flex gap-4">
+                                        <div className="mt-1 shrink-0">
+                                            <div className="h-12 w-12 bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
+                                                <Briefcase className="h-6 w-6 text-slate-400" />
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col w-full">
+                                            <h3 className="text-base font-semibold text-slate-900 leading-tight">{displayUser.role || "Professional"}</h3>
+                                            <p className="text-[15px] text-slate-800">{displayUser.company}</p>
+                                            <p className="text-sm text-slate-500 mt-1">Full-time • Present</p>
+                                            {displayUser.achievement && <p className="text-[15px] text-slate-800 mt-3 whitespace-pre-wrap">{displayUser.achievement}</p>}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-[15px] text-slate-500 italic">No professional experience listed.</p>
+                                )}
+                            </CardContent>
+
+                            <CardHeader className="px-6 py-4 pb-2 flex flex-row items-center justify-between border-0 pt-5">
+                                <CardTitle className="text-xl font-semibold text-slate-900">Education</CardTitle>
+                                {isOwnProfile && (
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-slate-100 text-slate-600" onClick={() => setEditOpen(true)}><Plus className="h-6 w-6" /></Button>
+                                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 hover:bg-slate-100 text-slate-600" onClick={() => setEditOpen(true)}><PenTool className="h-5 w-5" /></Button>
+                                    </div>
+                                )}
+                            </CardHeader>
+                            <CardContent className="px-6 pb-6">
+                                <div className="flex gap-4">
+                                    <div className="mt-1 shrink-0">
+                                        <div className="h-12 w-12 bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
+                                            <span className="font-extrabold text-slate-800 tracking-tighter">LDCE</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col w-full">
+                                        <h3 className="text-base font-semibold text-slate-900 leading-tight">L.D. College of Engineering</h3>
+                                        <p className="text-[15px] text-slate-800">{displayUser?.department || "Bachelor's Degree"}</p>
+                                        <p className="text-sm text-slate-500 mt-1">Founding Batch {displayUser?.graduationYear}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Right Rail (Takes up 1/4) */}
+                    <div className="md:col-span-1 space-y-4 hidden md:block">
+                        <Card className="border-slate-300/60 shadow-none rounded-lg bg-white">
+                            <CardHeader className="px-5 py-4 pb-2 border-0">
+                                <div className="flex justify-between items-center group cursor-pointer" onClick={() => setEditOpen(true)}>
+                                    <div>
+                                        <CardTitle className="text-[15px] font-semibold text-slate-900 group-hover:underline">Profile language</CardTitle>
+                                        <p className="text-sm text-slate-500">English</p>
+                                    </div>
+                                    <PenTool className="h-4 w-4 text-slate-600" />
+                                </div>
+                            </CardHeader>
+                            <Separator className="my-2" />
+                            <CardHeader className="px-5 py-2 pt-0 border-0">
+                                <div className="flex justify-between items-center group cursor-pointer" onClick={() => setEditOpen(true)}>
+                                    <div className="truncate pr-4 flex-1">
+                                        <CardTitle className="text-[15px] font-semibold text-slate-900 group-hover:underline truncate">Public profile & URL</CardTitle>
+                                        <a href={`/profile/${profileUserId}`} className="text-sm text-slate-500 truncate block">www.aluverse.com/in/{profileUserId?.substring(0, 8)}...</a>
+                                    </div>
+                                    <PenTool className="h-4 w-4 text-slate-600 shrink-0" />
+                                </div>
+                            </CardHeader>
+                        </Card>
+
+                        <Card className="border-slate-300/60 shadow-none rounded-lg bg-white" id="network">
+                            <CardHeader className="px-5 py-4 border-b border-slate-200/50">
+                                <CardTitle className="text-[15px] font-semibold text-slate-900">People you may know</CardTitle>
+                                <p className="text-xs text-slate-500 font-medium mt-1">From your alumni network</p>
+                            </CardHeader>
+                            <CardContent className="px-5 py-3">
+                                {connectionDetails.length === 0 ? (
+                                    <div className="py-6 text-center text-sm text-slate-500">No connections mapped yet.</div>
+                                ) : (
+                                    <div className="divide-y divide-slate-100">
+                                        {connectionDetails.slice(0, 5).map((con) => (
+                                            <div key={con.id} className="py-3 flex items-start gap-3">
+                                                <Avatar className="h-12 w-12 border border-slate-200 shadow-none cursor-pointer">
+                                                    <AvatarImage src={con.photoURL} alt={con.name} />
+                                                    <AvatarFallback className="bg-slate-100 text-slate-400 font-semibold">{con.name?.[0]?.toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-semibold text-slate-900 text-[15px] hover:underline cursor-pointer truncate leading-tight mb-0.5" onClick={() => navigate(`/profile/${con.partnerId}`)}>{con.name}</h3>
+                                                    <p className="text-xs text-slate-500 truncate leading-tight mb-2">{con.role} at {con.department}</p>
+                                                    <Button variant="outline" size="sm" className="rounded-full h-8 px-4 border-slate-500 text-slate-600 font-semibold hover:bg-slate-100 hover:border-slate-700 w-full" onClick={() => handleMessage(con.partnerId)}>
+                                                        Message
                                                     </Button>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        <TabsContent value="blogs">
-                            <Card className="border-slate-200 shadow-xl rounded-[2rem] overflow-hidden">
-                                <CardHeader className="bg-slate-50 border-b py-4 px-6 flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg font-bold">{isOwnProfile ? "My Blog Posts" : "Blog Posts"} ({myBlogs.length})</CardTitle>
-                                    {isOwnProfile && <Button size="sm" onClick={() => navigate("/blogs")} className="gradient-primary text-white text-xs h-8">Write New</Button>}
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    {myBlogs.length === 0 ? (
-                                        <div className="p-20 text-center text-muted-foreground">
-                                            <PenTool className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                            <p>You haven't posted any blogs yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y divide-slate-100">
-                                            {myBlogs.map((blog) => (
-                                                <div key={blog.id} className="p-4 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => navigate("/blogs")}>
-                                                    <h3 className="font-bold text-slate-800 line-clamp-1">{blog.title}</h3>
-                                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{blog.excerpt}</p>
-                                                    <div className="flex gap-2 mt-2">
-                                                        {blog.tags?.slice(0, 3).map(tag => (
-                                                            <Badge key={tag} variant="outline" className="text-[10px] py-0">{tag}</Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        <TabsContent value="challenges">
-                            <Card className="border-slate-200 shadow-xl rounded-[2rem] overflow-hidden">
-                                <CardHeader className="bg-slate-50 border-b py-4 px-6 flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg font-bold">{isOwnProfile ? "Posted Challenges" : "Challenges"} ({myChallenges.length})</CardTitle>
-                                    {isOwnProfile && <Button size="sm" onClick={() => navigate("/challenges")} className="gradient-primary text-white text-xs h-8">Post New</Button>}
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    {myChallenges.length === 0 ? (
-                                        <div className="p-20 text-center text-muted-foreground">
-                                            <Award className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                            <p>No challenges posted yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y divide-slate-100">
-                                            {myChallenges.map((challenge) => (
-                                                <div key={challenge.id} className="p-4 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => navigate("/challenges")}>
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <h3 className="font-bold text-slate-800">{challenge.title}</h3>
-                                                            <p className="text-xs font-bold text-primary">{challenge.category}</p>
-                                                        </div>
-                                                        <Badge variant="outline">{challenge.deadline}</Badge>
-                                                    </div>
-                                                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{challenge.description}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        <TabsContent value="opportunities">
-                            <Card className="border-slate-200 shadow-xl rounded-[2rem] overflow-hidden">
-                                <CardHeader className="bg-slate-50 border-b py-4 px-6 flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg font-bold">Posted Opportunities ({myOpportunities.length})</CardTitle>
-                                    {isOwnProfile && <Button size="sm" onClick={() => navigate("/opportunities")} className="gradient-primary text-white text-xs h-8">Post New</Button>}
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    {myOpportunities.length === 0 ? (
-                                        <div className="p-20 text-center text-muted-foreground">
-                                            <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                            <p>No job opportunities posted yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y divide-slate-100">
-                                            {myOpportunities.map((opp) => (
-                                                <div key={opp.id} className="p-4 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => navigate("/opportunities")}>
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <h3 className="font-bold text-slate-800">{opp.title}</h3>
-                                                            <p className="text-xs font-bold text-primary">{opp.company}</p>
-                                                        </div>
-                                                        <Badge>{opp.type || opp.roleType || 'Opportunity'}</Badge>
-                                                    </div>
-                                                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Deadline: {opp.deadline}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                        <TabsContent value="events">
-                            <Card className="border-slate-200 shadow-xl rounded-[2rem] overflow-hidden">
-                                <CardHeader className="bg-slate-50 border-b py-4 px-6 flex flex-row items-center justify-between">
-                                    <CardTitle className="text-lg font-bold">My Events ({myEvents.length})</CardTitle>
-                                    {isOwnProfile && <Button size="sm" onClick={() => navigate("/events")} className="gradient-primary text-white text-xs h-8">Post Event</Button>}
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    {myEvents.length === 0 ? (
-                                        <div className="p-20 text-center text-muted-foreground">
-                                            <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                            <p>No events organized yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y divide-slate-100">
-                                            {myEvents.map((event) => (
-                                                <div key={event.id} className="p-4 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => navigate("/events")}>
-                                                    <h3 className="font-bold text-slate-800">{event.title}</h3>
-                                                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                                                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3 text-primary" /> {event.date}</span>
-                                                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-primary" /> {event.location || (event.eventType === 'online' ? 'Online Event' : 'Location TBD')}</span>
-                                                    </div>
-                                                    <Badge className="mt-2 text-[10px]" variant="outline">{event.eventType || 'Event'}</Badge>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-
-                    </Tabs>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                            <Button variant="ghost" className="w-full rounded-none rounded-b-lg font-semibold text-slate-600 h-10 border-t border-slate-200/50 hover:bg-slate-50" onClick={() => navigate('/directory')}>
+                                Show all
+                            </Button>
+                        </Card>
+                    </div>
                 </div>
-            </div>
 
-            {/* Edit Profile Dialog */}
-            <Dialog open={editOpen} onOpenChange={setEditOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Edit Profile</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleEditSubmit} className="space-y-6">
-                        {/* Photo Upload */}
-                        <div className="space-y-3">
-                            <Label className="flex items-center gap-2"><Upload className="h-4 w-4" /> Profile Photo</Label>
-                            <div className="flex items-center gap-4">
-                                <Avatar className="h-20 w-20 border-2 border-primary/20">
-                                    <AvatarImage src={photoPreview} alt="Preview" />
-                                    <AvatarFallback>{editData.name?.[0]?.toUpperCase() || "U"}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handlePhotoChange}
-                                        className="hidden"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="w-full cursor-pointer"
-                                        onClick={() => fileInputRef.current?.click()}
-                                    >
-                                        {photoFile ? "Change Photo" : "Choose Photo"}
-                                    </Button>
+                {/* Edit Profile Dialog */}
+                <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto px-0 bg-white shadow-xl rounded-xl">
+                        <DialogHeader className="px-6 py-4 border-b border-slate-200">
+                            <DialogTitle className="text-xl font-semibold text-slate-800">Edit intro</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleEditSubmit} className="space-y-6 px-6 py-4">
+                            <p className="text-xs text-slate-500">* Indicates required</p>
+
+                            {/* Photo Upload */}
+                            <div className="space-y-3">
+                                <Label className="font-semibold text-slate-700">Profile Photo</Label>
+                                <div className="flex items-center gap-6">
+                                    <Avatar className="h-24 w-24 border-2 border-slate-200">
+                                        <AvatarImage src={photoPreview} />
+                                        <AvatarFallback className="text-3xl bg-slate-100">{editData.name?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                                        <Button type="button" variant="outline" className="border-[#0a66c2] text-[#0a66c2] hover:bg-[#ebf4fd] hover:border-[#0a66c2] font-semibold rounded-full px-5" onClick={() => fileInputRef.current?.click()}>
+                                            {photoFile ? "Change Photo" : "Add Photo"}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-                            <p className="text-xs text-muted-foreground">Max 5MB. JPG, PNG supported.</p>
-                        </div>
 
-                        {/* Name */}
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Full Name *</Label>
-                            <Input
-                                id="name"
-                                value={editData.name}
-                                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                                placeholder="Enter your name"
-                                required
-                            />
-                        </div>
-
-                        {/* Bio */}
-                        <div className="space-y-2">
-                            <Label htmlFor="bio">Bio</Label>
-                            <textarea
-                                id="bio"
-                                value={editData.bio}
-                                onChange={(e) => setEditData({ ...editData, bio: e.target.value })}
-                                placeholder="Tell us about yourself"
-                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-                                rows={3}
-                            />
-                        </div>
-
-                        {/* Company */}
-                        <div className="space-y-2">
-                            <Label htmlFor="company" className="flex items-center gap-2"><Briefcase className="h-4 w-4" /> Company</Label>
-                            <Input
-                                id="company"
-                                value={editData.company}
-                                onChange={(e) => setEditData({ ...editData, company: e.target.value })}
-                                placeholder="e.g. Google, Microsoft"
-                            />
-                        </div>
-
-                        {/* Achievement */}
-                        <div className="space-y-2">
-                            <Label htmlFor="achievement" className="flex items-center gap-2"><Award className="h-4 w-4" /> Achievements & Certifications</Label>
-                            <textarea
-                                id="achievement"
-                                value={editData.achievement}
-                                onChange={(e) => setEditData({ ...editData, achievement: e.target.value })}
-                                placeholder="Share your achievements, certifications, or key accomplishments"
-                                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-                                rows={3}
-                            />
-                        </div>
-
-                        {/* Social Links */}
-                        <div className="space-y-4 border-t pt-4">
-                            <h3 className="font-bold text-slate-800">Social Links & Portfolio</h3>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="portfolio" className="flex items-center gap-2"><LinkIcon className="h-4 w-4" /> Portfolio URL</Label>
-                                <Input
-                                    id="portfolio"
-                                    type="url"
-                                    value={editData.portfolioUrl}
-                                    onChange={(e) => setEditData({ ...editData, portfolioUrl: e.target.value })}
-                                    placeholder="https://yourportfolio.com"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2 col-span-2 sm:col-span-1">
+                                    <Label htmlFor="name" className="font-semibold text-slate-700">Full name *</Label>
+                                    <Input id="name" value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} className="border-slate-500 text-[15px] h-10 rounded focus-visible:ring-[#0a66c2]" required />
+                                </div>
+                                <div className="space-y-2 col-span-2 sm:col-span-1">
+                                    <Label htmlFor="company" className="font-semibold text-slate-700">Current company</Label>
+                                    <Input id="company" value={editData.company} onChange={(e) => setEditData({ ...editData, company: e.target.value })} className="border-slate-500 text-[15px] h-10 rounded focus-visible:ring-[#0a66c2]" />
+                                </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="linkedin" className="flex items-center gap-2"><LinkIcon className="h-4 w-4" /> LinkedIn URL</Label>
-                                <Input
-                                    id="linkedin"
-                                    type="url"
-                                    value={editData.linkedinUrl}
-                                    onChange={(e) => setEditData({ ...editData, linkedinUrl: e.target.value })}
-                                    placeholder="https://linkedin.com/in/yourprofile"
-                                />
+                                <Label htmlFor="bio" className="font-semibold text-slate-700">Headline</Label>
+                                <textarea id="bio" value={editData.bio} onChange={(e) => setEditData({ ...editData, bio: e.target.value })} className="w-full px-3 py-2 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-[#0a66c2] resize-none text-[15px]" rows={3} />
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="twitter" className="flex items-center gap-2"><LinkIcon className="h-4 w-4" /> Twitter URL</Label>
-                                <Input
-                                    id="twitter"
-                                    type="url"
-                                    value={editData.twitterUrl}
-                                    onChange={(e) => setEditData({ ...editData, twitterUrl: e.target.value })}
-                                    placeholder="https://twitter.com/yourprofile"
-                                />
+                                <Label htmlFor="achievement" className="font-semibold text-slate-700">Experience summary</Label>
+                                <textarea id="achievement" value={editData.achievement} onChange={(e) => setEditData({ ...editData, achievement: e.target.value })} className="w-full px-3 py-2 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-[#0a66c2] resize-none text-[15px]" rows={4} />
                             </div>
-                        </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 pt-4 border-t">
-                            <Button
-                                type="submit"
-                                disabled={editLoading}
-                                className={`flex-1 text-white rounded-lg transition-all ${editLoading ? 'opacity-75 cursor-wait' : 'bg-primary hover:bg-primary/90'}`}
-                            >
-                                {editLoading ? (
-                                    <span className="flex items-center gap-2">
-                                        <span className="animate-spin">⏳</span> Saving...
-                                    </span>
-                                ) : "Save Changes"}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setEditOpen(false)}
-                                disabled={editLoading}
-                                className="flex-1 rounded-lg"
-                            >
-                                Cancel
-                            </Button>
-                        </div>
-                    </form>
-                </DialogContent>
-            </Dialog>
+                            <div className="border-t border-slate-200 pt-6">
+                                <h3 className="font-semibold text-slate-800 mb-4 text-lg">Contact info</h3>
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="linkedin" className="font-semibold text-slate-700">LinkedIn Profile</Label>
+                                        <Input id="linkedin" type="url" value={editData.linkedinUrl} onChange={(e) => setEditData({ ...editData, linkedinUrl: e.target.value })} className="border-slate-500 text-[15px] h-10 rounded" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="portfolio" className="font-semibold text-slate-700">Personal Website</Label>
+                                        <Input id="portfolio" type="url" value={editData.portfolioUrl} onChange={(e) => setEditData({ ...editData, portfolioUrl: e.target.value })} className="border-slate-500 text-[15px] h-10 rounded" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-6 border-t border-slate-200 pb-2">
+                                <Button type="button" variant="ghost" className="font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-5" onClick={() => setEditOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={editLoading} className="font-semibold bg-[#0a66c2] hover:bg-[#004182] text-white rounded-full px-6">
+                                    {editLoading ? "Saving..." : "Save"}
+                                </Button>
+                            </div>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            </div>
         </div>
     );
 };
