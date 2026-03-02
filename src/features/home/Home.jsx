@@ -20,7 +20,7 @@ import slide4 from "@/assets/silde4.jfif";
 import slide5 from "@/assets/silde5.jpeg";
 
 const Home = () => {
-  const { requireAuth } = useAuth();
+  const { user, requireAuth } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const heroSlides = [

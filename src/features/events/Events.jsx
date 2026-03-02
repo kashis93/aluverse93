@@ -45,8 +45,8 @@ const Events = () => {
     const q = query(collection(db, "events"), orderBy("timestamp", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setEventsList(data.length > 0 ? data : eventsData);
-      
+      setEventsList([...data, ...eventsData]);
+
       // Fetch poster details for each event
       data.forEach(async (event) => {
         if (event.userId && event.userId !== user?.uid) {
@@ -71,7 +71,7 @@ const Events = () => {
       toast.error("Please login to send connection requests");
       return;
     }
-    
+
     if (posterUserId === user.uid) {
       toast.error("You cannot connect with yourself");
       return;
@@ -269,7 +269,7 @@ const Events = () => {
                   </div>
                 </div>
               )}
-              
+
               <div className="mt-4 space-y-2">
                 {event.eventType === 'online' && event.meetingLink && (
                   <Button

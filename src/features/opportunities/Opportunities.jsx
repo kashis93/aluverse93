@@ -190,9 +190,10 @@ const Opportunities = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      {/* Post Opportunity Modal */}      {showPostForm && (
+      {/* Post Opportunity Modal */}
+      {showPostForm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-30">
-          <div className="bg-white p-6 rounded-lg w-full max-w-lg">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg max-h-screen overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4">Post Opportunity</h2>
             <form onSubmit={handlePostSubmit} className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
@@ -344,9 +345,9 @@ const Opportunities = () => {
           )}
         </div>
       </div>
+
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Main Feed */}
         {/* Main Feed */}
         <main className="flex-1 min-w-0">
           {/* Recommendation Section */}
