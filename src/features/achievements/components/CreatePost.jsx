@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { postStatus } from "@/services/postsAPI";
+import { postStatus, updatePost } from "@/services/postsAPI";
 import moment from "moment";
 
 import PostModal from "./PostModal";
@@ -101,10 +101,8 @@ export default function CreatePost({ currentUser, allStatuses }) {
                 sendStatus={sendStatus}
                 isEdit={isEdit}
                 updateStatus={() => {
-                    import("@/services/postsAPI").then(({ updatePost }) => {
-                        updatePost(currentPost.id, status, postImage);
-                        setModalOpen(false);
-                    });
+                    updatePost(currentPost.id, status, postImage);
+                    setModalOpen(false);
                 }}
                 uploadPostImage={uploadPostImage}
                 postImage={postImage}
