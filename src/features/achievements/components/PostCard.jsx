@@ -17,7 +17,7 @@ export default function PostCard({ posts, getEditData, currentUser }) {
     const [imageModal, setImageModal] = useState(false);
 
     // Fallback structure in case users don't have certain properties
-    const isOwner = currentUser?.uid === posts.userID;
+    const isOwner = currentUser?.uid === posts?.userID;
 
     return (
         <Card className="border-slate-200 shadow-xl rounded-[2rem] overflow-hidden mb-6 bg-white transition-all hover:shadow-2xl">
@@ -28,18 +28,18 @@ export default function PostCard({ posts, getEditData, currentUser }) {
                             className="h-12 w-12 cursor-pointer ring-2 ring-primary/10 shadow-sm"
                             onClick={() => navigate(`/profile/${posts.userID}`)}
                         >
-                            <AvatarImage src={posts.userPhotoURL} alt={posts.userName} />
-                            <AvatarFallback>{posts.userName?.[0] || 'U'}</AvatarFallback>
+                            <AvatarImage src={posts?.userPhotoURL} alt={posts?.userName || "User"} />
+                            <AvatarFallback>{posts?.userName?.[0] || 'U'}</AvatarFallback>
                         </Avatar>
                         <div>
                             <p
                                 className="font-bold text-slate-900 cursor-pointer hover:text-primary transition-colors hover:underline decoration-2 underline-offset-4"
-                                onClick={() => navigate(`/profile/${posts.userID}`)}
+                                onClick={() => navigate(`/profile/${posts?.userID || ''}`)}
                             >
-                                {posts.userName}
+                                {posts?.userName || "Unknown User"}
                             </p>
-                            <p className="text-xs font-medium text-slate-500 mb-0.5">{posts.userHeadline || "Alumni Member"}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{posts.timeStamp}</p>
+                            <p className="text-xs font-medium text-slate-500 mb-0.5">{posts?.userHeadline || "Alumni Member"}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{posts?.timeStamp?.toString() || ""}</p>
                         </div>
                     </div>
 
@@ -72,9 +72,9 @@ export default function PostCard({ posts, getEditData, currentUser }) {
                 </div>
 
                 <div className="prose prose-slate max-w-none mb-4 text-slate-700 text-[15px] leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: posts.content || posts.status }} />
+                    dangerouslySetInnerHTML={{ __html: posts?.content || posts?.status || "" }} />
 
-                {posts.postImage && (
+                {posts?.postImage && (
                     <div
                         className="relative rounded-2xl overflow-hidden cursor-pointer group border border-slate-200 shadow-sm"
                         onClick={() => setImageModal(true)}

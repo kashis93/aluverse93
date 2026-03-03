@@ -466,7 +466,7 @@ const Profile = () => {
                                                     ))}
                                                 </div>
                                             )}
-                                            <Button variant="ghost" className="w-full rounded-none rounded-b-lg font-semibold text-slate-600 h-12 hover:bg-slate-100/50" onClick={() => navigate('/achievements')}>
+                                            <Button variant="ghost" className="w-full rounded-none rounded-b-lg font-semibold text-slate-600 h-12 hover:bg-slate-100/50" onClick={() => navigate(`/profile/${profileUserId}/activity`)}>
                                                 Show all activity <Activity className="w-4 h-4 ml-2" />
                                             </Button>
                                         </TabsContent>

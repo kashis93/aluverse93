@@ -20,6 +20,7 @@ import Notifications from "@/features/notifications/Notifications.jsx";
 import Leaderboard from "@/features/directory/Leaderboard.jsx";
 import NotFound from "@/components/NotFound.jsx";
 import Profile from "@/features/profile/Profile.jsx";
+import ActivityHistory from "@/features/profile/components/ActivityHistory.jsx";
 import AchievementsPage from "@/features/achievements/AchievementsPage.jsx";
 import CompleteProfile from "@/features/profile/CompleteProfile.jsx";
 import { Navigate } from "react-router-dom";
@@ -53,6 +54,8 @@ const App = () => (
                 <Route path="/complete-profile" element={<CompleteProfile />} />
                 <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                 <Route path="/profile/:id" element={<PrivateRoute><Profile /></PrivateRoute>} />
+                <Route path="/profile/activity" element={<PrivateRoute><ActivityHistory /></PrivateRoute>} />
+                <Route path="/profile/:id/activity" element={<PrivateRoute><ActivityHistory /></PrivateRoute>} />
                 <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
                 <Route path="/events" element={<PrivateRoute><Events /></PrivateRoute>} />
                 <Route path="/directory" element={<PrivateRoute><Directory /></PrivateRoute>} />
