@@ -1,7 +1,7 @@
 
 import { Sonner, Toaster, TooltipProvider } from "@/components/ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext.jsx";
 import { NotificationProvider } from "@/contexts/NotificationContext.jsx";
 import Navbar from "@/components/Navbar.jsx";
@@ -23,7 +23,6 @@ import NotFound from "@/components/NotFound.jsx";
 import Profile from "@/features/profile/Profile.jsx";
 import AchievementsPage from "@/features/achievements/AchievementsPage.jsx";
 import CompleteProfile from "@/features/profile/CompleteProfile.jsx";
-import { Navigate } from "react-router-dom";
 
 const PrivateRoute = ({ children }) => {
   const { user, isProfileComplete } = useAuth();
@@ -44,7 +43,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <Router>
         <AuthProvider>
           <NotificationProvider>
             <Navbar />
@@ -74,7 +73,7 @@ const App = () => (
             <Footer />
           </NotificationProvider>
         </AuthProvider>
-      </BrowserRouter>
+      </Router>
     </TooltipProvider>
   </QueryClientProvider>
 );
